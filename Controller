@@ -1,0 +1,205 @@
+public class UserControllerExtension {
+
+    //USER ID GET AND SET METHOD
+    public string userId;
+    
+    public string getuserId(){
+        return userId;
+    }
+    
+    public void setuserId(string providedId){
+        providedId = providedId.trim();
+        try{
+            userId = providedId;
+        }
+        catch (exception e){
+            ApexPages.addmessage(new ApexPages.message(ApexPages.severity.ERROR,e.getMessage()));
+        }
+    }
+
+    //SYS PERMS IN VF
+    public list <StringAndBoolean__c> masterSysPerms {get; set;}
+    
+    //OBJECT PERMS IN VF
+    public list <objectpermissions> masterObjectPerms {get; set;}
+    
+    //OBJECT PERMS IN VF
+    public list <fieldpermissions> specFieldPerms {get; set;}
+    
+    //List of Permission Sets used in VF
+    public list <string> PermissionSets {get; set;}
+    
+    //FIELD PERMS MASTER
+    public list <fieldpermissions> masterFieldPerms;
+    
+    //OBJECT TYPE PASSED FOR FIELD PERMISSIONS
+    public string sObjectType  {get; set;}
+    
+    //PERMISSION SET PASSED FOR FIELD PERMISSIONS
+    public string SelectedPermissionSet {get; set;}
+    
+    //INNER CLASS TO HOLD SYSTERM PERMS BECAUSE THERE ARE LIKE 4 BILLION FIELDS ON THAT STUPID OBJECT AND IM NOT MAKING A VF PAGE WITH 4 BILLION FIELDS
+    class StringAndBoolean{
+        public string anyString {get;set;} 
+        public boolean anyBoolean {get;set;} 
+    }
+    
+    //SOME GLOBALS
+    list <objectpermissions> allUsersObjectPermisions = new list <objectPermissions>();
+    
+    public list <permissionSet> allUsersSystemPermisions {get; set;}
+    
+    
+    public void save() {
+        
+        //OBJECT PERMISSIONS SECTION START
+        ////Clear my master lists
+        masterObjectPerms = new list <objectpermissions>();
+        masterSysPerms = new list <StringAndBoolean__c>();
+        masterFieldPerms = new list <fieldpermissions>();
+            
+        //Store a map of each ObjectType and a master ObjectPermission for that object
+        Map<string, objectpermissions> mapObjectTypeAndObject = new Map<string, objectpermissions>();
+        
+        //Get list of all ObjectPermissions for provided userId
+        allUsersObjectPermisions =[SELECT Id, ParentId, Parent.Label, PermissionsRead, PermissionsDelete, Permissionsedit, Permissionscreate, SobjectType
+                                   FROM ObjectPermissions
+                                   WHERE ParentId in (SELECT PermissionSetId
+                                                      FROM PermissionSetAssignment 
+                                                      WHERE AssigneeId = :userId)
+                                   ORDER BY sObjectType desc];
+        
+        for (ObjectPermissions objectPermission : allUsersObjectPermisions){
+            system.debug(objectpermission.parentid);
+            
+        }
+        
+        
+        for (objectPermissions o : allUsersObjectPermisions){
+            //If the map does not already have this object type (meaning this is the first time we are seeing it) put the
+            //object type as the key in the map and the ObjectPermission as the value
+            if (!mapObjectTypeAndObject.keyset().contains(o.sobjecttype)){
+                mapObjectTypeAndObject.put(o.sobjecttype, o);
+            } else{
+            //If the map does already have this object type (meaning this is NOT the first time we are seeing it) check the
+            //read, create, edit, and delete values for "o" against the values that are curerntly in the map - which we
+            //call currentObjectPerm. If currentObjectPerm has a false value, and "o" has a true value, set the value of the
+            //currentObjectPerm - in the actual map - to true
+                objectpermissions currentObjectPerm = mapObjectTypeAndObject.get(o.sobjecttype);            
+                if (o.PermissionsCreate == true && currentObjectPerm.PermissionsCreate == false){
+                    mapObjectTypeAndObject.get(o.sObjectType).PermissionsCreate = true;
+                }
+                if (o.PermissionsRead == true && currentObjectPerm.PermissionsRead == false){
+                    mapObjectTypeAndObject.get(o.sObjectType).PermissionsRead = true;
+                }
+                if (o.PermissionsEdit == true && currentObjectPerm.PermissionsEdit == false){
+                    mapObjectTypeAndObject.get(o.sObjectType).PermissionsEdit = true;
+                }
+                if (o.PermissionsDelete == true && currentObjectPerm.PermissionsDelete == false){
+                    mapObjectTypeAndObject.get(o.sObjectType).PermissionsDelete = true;
+                }
+            }
+        }
+        //Add all the map's values (all the ObjectPermissions) to the global list of ObjectPermissions
+        masterObjectPerms.addall(mapObjectTypeAndObject.values());
+//OBJECT PERMISSIONS SECTION END
+
+        
+//SYSTEM PERMISSIONS SECTION START
+        //Get a list off all fields on the PermissionSet object (these are system permissions) - use to create query
+        List <String> permissionSetFields = new List<String>(Schema.SObjectType.permissionSet.fields.getMap().keyset());
+        
+        string permissionSetFieldsAsString = '';
+        for (string permissionSetField : permissionSetFields){
+            if (permissionSetFieldsAsString == ''){
+                permissionSetFieldsAsString = permissionSetField;
+            }else{
+                permissionSetFieldsAsString = permissionSetFieldsAsString + ', ' + permissionSetField;
+            }
+        }
+        string query = 'select ' + permissionSetFieldsAsString + ' from permissionset WHERE Id in (SELECT PermissionSetId FROM PermissionSetAssignment WHERE AssigneeId = \'' + userid + '\')';
+        
+        //Get list of all SystemPermissions for provided userId
+        allUsersSystemPermisions = Database.query(query);
+        
+        //Create a "master" permission set to store the data we will eventually pass to VF
+        permissionSet MasterSystemPermissionSet = allUsersSystemPermisions[0];
+        
+        //For each of the users Permission sets
+        for (permissionSet userFieldPermission : allUsersSystemPermisions){
+            //For each possible permission value - the fields...
+            for (string permissionSetField : permissionSetFields){
+                //Make sure current permission set is not the master
+                if (MasterSystemPermissionSet.Id != userFieldPermission.Id){
+                    //Check to see if the field is true in current permission set but false in the master we created
+                    //If it is, set it to true in the master
+                    if (userFieldPermission.get(permissionSetField) == true && MasterSystemPermissionSet.get(permissionSetField) == false && permissionSetField != 'isownedbyprofile'){
+                        MasterSystemPermissionSet.put(permissionSetField, true);
+                    }
+                }
+            }
+        }
+
+        //For every field on the permission set object
+        for (integer i = 0; i < permissionSetFields.size(); i++){
+            //Just check if this field is a boolean or not - we don't care about those weird fields
+            if (MasterSystemPermissionSet.get(permissionSetFields[i]) == true || MasterSystemPermissionSet.get(permissionSetFields[i]) == false){
+                StringAndBoolean__c sB = new StringAndBoolean__c();
+                sB.anyString__c = permissionSetFields[i];
+                sB.anyBoolean__c = boolean.valueof(MasterSystemPermissionSet.get(permissionSetFields[i]));
+                masterSysPerms.add(sB);
+            }
+            
+        }
+//SYSTEM PERMISSIONS SECTION END
+
+        
+//FIELD PERMISSIONS SECTION START
+        //Store a map of each FieldType and a master FieldPermission for that object
+        Map<string, fieldpermissions> mapFieldTypeAndField = new Map<string, fieldpermissions>();
+        
+        //Get list of all fieldPermissions for provided userId
+        list <fieldpermissions> allUsersFieldPermisions = [select field, permissionsread, permissionsedit, sObjectType
+                                                          from fieldpermissions
+                                                          WHERE ParentId in (SELECT PermissionSetId
+                                                                             FROM PermissionSetAssignment 
+                                                                             WHERE AssigneeId = :userId)
+                                                          order by sobjecttype];
+        
+        //For each fieldPermission the user has, check if the map already contains that field - if it does not, add that field and the permission to the map
+        //If it does, check if the current permission is true and the matching permission in the map is false. If it is, then overwrite the matching permission with true
+        for (fieldPermissions fieldPermission : allUsersFieldPermisions){
+            if (!mapFieldTypeAndField.keyset().contains(fieldPermission.field)){
+                mapFieldTypeAndField.put(fieldPermission.field, fieldPermission);
+            } else{
+                fieldpermissions tempField = mapFieldTypeAndField.get(fieldPermission.field);
+                if (fieldPermission.permissionsread == true && tempField.permissionsread == false){
+                    mapFieldTypeAndField.get(fieldPermission.field).permissionsread = true;
+                }
+            }
+        }
+        
+        masterFieldPerms.addall(mapFieldTypeAndField.values());
+        //FIELD PERMISSIONS SECTION END
+
+    }
+    
+    public void fieldPerms(){
+        
+        specFieldPerms = new list <fieldpermissions>();
+        
+        for (FieldPermissions fieldPermission : masterFieldPerms){
+            if (fieldPermission.sObjectType == sObjectType){
+                specFieldPerms.add(fieldPermission);
+            }
+        }
+        
+    }
+    
+    public void specificPerm(){
+        
+        
+    }
+
+    
+}
