@@ -18,7 +18,7 @@ public class UserControllerExtension {
     }
 
     //SYS PERMS IN VF
-    public list <StringAndBoolean__c> masterSysPerms {get; set;}
+    public list <StringAndBoolean> masterSysPerms {get; set;}
     
     //OBJECT PERMS IN VF
     public list <objectpermissions> masterObjectPerms {get; set;}
@@ -55,7 +55,7 @@ public class UserControllerExtension {
         //OBJECT PERMISSIONS SECTION START
         ////Clear my master lists
         masterObjectPerms = new list <objectpermissions>();
-        masterSysPerms = new list <StringAndBoolean__c>();
+        masterSysPerms = new list <StringAndBoolean>();
         masterFieldPerms = new list <fieldpermissions>();
             
         //Store a map of each ObjectType and a master ObjectPermission for that object
@@ -67,7 +67,7 @@ public class UserControllerExtension {
                                    WHERE ParentId in (SELECT PermissionSetId
                                                       FROM PermissionSetAssignment 
                                                       WHERE AssigneeId = :userId)
-                                   ORDER BY sObjectType desc];
+                                   ORDER BY sObjectType asc];
         
         for (ObjectPermissions objectPermission : allUsersObjectPermisions){
             system.debug(objectpermission.parentid);
@@ -144,9 +144,9 @@ public class UserControllerExtension {
         for (integer i = 0; i < permissionSetFields.size(); i++){
             //Just check if this field is a boolean or not - we don't care about those weird fields
             if (MasterSystemPermissionSet.get(permissionSetFields[i]) == true || MasterSystemPermissionSet.get(permissionSetFields[i]) == false){
-                StringAndBoolean__c sB = new StringAndBoolean__c();
-                sB.anyString__c = permissionSetFields[i];
-                sB.anyBoolean__c = boolean.valueof(MasterSystemPermissionSet.get(permissionSetFields[i]));
+                StringAndBoolean sB = new StringAndBoolean();
+                sB.anyString = permissionSetFields[i];
+                sB.anyBoolean = boolean.valueof(MasterSystemPermissionSet.get(permissionSetFields[i]));
                 masterSysPerms.add(sB);
             }
             
