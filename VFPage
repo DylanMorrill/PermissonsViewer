@@ -1,0 +1,63 @@
+<apex:page lightningStyleSheets="true" controller="UserControllerExtension">
+    <apex:pageMessages />
+    <h1>Permissions Viewer</h1>
+
+    <apex:form id="form">
+        
+        <apex:pageblock >
+            <apex:pageblocksection columns="1">
+                <apex:inputtext value="{!UserId}"/>
+                <apex:commandButton action="{! save }" value="Find Permissions" />
+            </apex:pageblocksection>
+        </apex:pageblock>
+        
+        <apex:pageblock >
+            <apex:pageblocksection columns="4">
+                
+                <apex:pageblocksection title="User's Permission Sets">
+                    <apex:pageblocktable value="{!allUsersSystemPermisions}" var="p" rendered="{!NOT(ISNULL(allUsersSystemPermisions))}">
+                        <apex:column headerValue="Permission Set">
+                            <apex:commandlink value="{!p.label}" action="{!specificPerm}">
+                                <apex:param name="permSet" value="{!p.id}" assignTo="{!SelectedPermissionSet}" />
+                            </apex:commandlink>
+                        </apex:column>
+                        <apex:column headerValue="Id" value="{!p.id}"/>
+                    </apex:pageblocktable>
+                </apex:pageblocksection>
+                
+                <apex:pageblocksection title="System Permissions">
+                    <apex:pageblocktable value="{!masterSysPerms}" var="p" rendered="{!NOT(ISNULL(masterSysPerms))}">
+                        <apex:column headerValue="Permission" value="{!p.anyString__c}"/>
+                        <apex:column headerValue="Yes/No" value="{!p.anyBoolean__c}"/>
+                    </apex:pageblocktable>
+                </apex:pageblocksection>
+                
+                <apex:pageblocksection title="Object Permissions">
+                    <apex:pageblocktable value="{!masterObjectPerms}" var="p" rendered="{!NOT(ISNULL(masterObjectPerms))}">
+                        <apex:column headerValue="Object">
+                            <apex:commandlink value="{!p.SobjectType}" action="{!fieldPerms}">
+                                <apex:param name="objectType" value="{!p.SobjectType}" assignTo="{!SObjectType}" />
+                            </apex:commandlink>
+                        </apex:column>
+                        <apex:column headerValue="Read" value="{!p.permissionsread}"/>
+                        <apex:column headerValue="Create" value="{!p.permissionsCreate}"/>
+                        <apex:column headerValue="Edit" value="{!p.permissionsEdit}"/>
+                        <apex:column headerValue="Delete" value="{!p.permissionsDelete}"/>
+                    </apex:pageblocktable>
+                </apex:pageblocksection>
+                
+                <apex:pageblocksection title="Field Permissions">
+                    <apex:pageblocktable value="{!specFieldPerms}" var="p" rendered="{!NOT(ISNULL(specFieldPerms))}">
+                        <apex:column headerValue="Object" value="{!p.sObjecttype}"/>
+                        <apex:column headerValue="Field" value="{!p.field}"/>
+                        <apex:column headerValue="Read" value="{!p.Permissionsread}"/>
+                        <apex:column headerValue="Edit" value="{!p.Permissionsedit}"/>
+                    </apex:pageblocktable>
+                </apex:pageblocksection>
+                
+            </apex:pageblocksection>
+        </apex:pageblock>
+        
+    </apex:form>
+    
+</apex:page>
