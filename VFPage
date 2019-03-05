@@ -1,5 +1,5 @@
 <apex:page lightningStyleSheets="true" controller="UserControllerExtension">
-    <apex:pageMessages />
+    <apex:pageMessages/>
     <h1>Permissions Viewer</h1>
 
     <apex:form id="form">
@@ -27,8 +27,8 @@
                 
                 <apex:pageblocksection title="System Permissions">
                     <apex:pageblocktable value="{!masterSysPerms}" var="p" rendered="{!NOT(ISNULL(masterSysPerms))}">
-                        <apex:column headerValue="Permission" value="{!p.anyString__c}"/>
-                        <apex:column headerValue="Yes/No" value="{!p.anyBoolean__c}"/>
+                        <apex:column headerValue="Permission" value="{!p.anyString}"/>
+                        <apex:column headerValue="Yes/No" value="{!p.anyBoolean}"/>
                     </apex:pageblocktable>
                 </apex:pageblocksection>
                 
